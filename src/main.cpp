@@ -53,7 +53,7 @@ extern "C" __declspec(dllexport) bool Initialize(HMODULE hMyModule, HMODULE hPar
 #endif
 
     VirtualProtect((PVOID)TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, PAGE_EXECUTE_WRITECOPY, &old);
-    og_mCheckFKey = SokuLib::TamperDword(0x482591, mCheckFKey_VSNetwork);
+    og_mCheckFKey = SokuLib::TamperNearJmpOpr(0x482591, mCheckFKey_VSNetwork);
     VirtualProtect((PVOID)TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, old, &old);
 
     FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
