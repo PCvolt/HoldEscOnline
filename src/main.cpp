@@ -5,7 +5,9 @@
 #include <SokuLib.hpp>
 
 static int (SokuLib::BattleManager::*ogBattleMgrOnProcess)();
+
 static void (SokuLib::BattleManager::*ogBattleMgrOnRender)();
+
 static bool (*og_mCheckFKey)(byte arg1, bool arg2, bool arg3, bool arg4);
 
 static bool init = false;
@@ -13,16 +15,24 @@ static SokuLib::DrawUtils::Sprite cog;
 
 constexpr int ESC_KEYCODE = 0x1B;
 
-int __fastcall CBattleManager_OnRender(SokuLib::BattleManager *This)
-{
+HWND getSokuHandle() {
+    return FindWindowEx(nullptr, nullptr, "th123_110a", nullptr);
+}
+
+bool isSokuFocused() {
+    return getSokuHandle() == GetForegroundWindow();
+}
+
+bool escHoldConditions;
+
+int __fastcall CBattleManager_OnRender(SokuLib::BattleManager *This) {
     (This->*ogBattleMgrOnRender)();
-    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000)
+    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && escHoldConditions == true)
         cog.draw();
     return 0;
 }
 
-int __fastcall CBattleManager_OnProcess(SokuLib::BattleManager *This)
-{
+int __fastcall CBattleManager_OnProcess(SokuLib::BattleManager *This) {
     if (!init) {
         cog.texture.loadFromGame("data/menu/gear/2L-front_M.cv2");
         cog.setPosition(SokuLib::Vector2i{10, 10});
@@ -32,23 +42,25 @@ int __fastcall CBattleManager_OnProcess(SokuLib::BattleManager *This)
         init = true;
     }
 
-    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000)
+    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && escHoldConditions == true)
         cog.setRotation(cog.getRotation() + 0.01f);
+
+    escHoldConditions = false; // Prevents from rendering even if the previous esc hold was valid
     return (This->*ogBattleMgrOnProcess)();
 }
 
 int timeHeld = 0;
-bool isEscapeHeld()
-{
-    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000)
-    {
-        if (timeHeld < 120)
-        {
+
+bool isEscapeHeld() {
+    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000) {
+        if (!isSokuFocused()) {
+            escHoldConditions = false;
+            timeHeld = 0;
+            return false;
+        } else if (timeHeld < 120) {
             ++timeHeld;
             return false;
-        }
-        else
-        {
+        } else {
             timeHeld = 0;
             return true;
         }
@@ -59,8 +71,7 @@ bool isEscapeHeld()
     return false;
 }
 
-bool mCheckFKey_VSNetwork(byte arg1, bool arg2, bool arg3, bool arg4)
-{
+bool mCheckFKey_VSNetwork(byte arg1, bool arg2, bool arg3, bool arg4) {
     return isEscapeHeld();
 }
 
@@ -68,8 +79,7 @@ extern "C" __declspec(dllexport) bool CheckVersion(const BYTE hash[16]) {
     return memcmp(hash, SokuLib::targetHash, 16) == 0;
 }
 
-extern "C" __declspec(dllexport) bool Initialize(HMODULE hMyModule, HMODULE hParentModule)
-{
+extern "C" __declspec(dllexport) bool Initialize(HMODULE hMyModule, HMODULE hParentModule) {
     DWORD old;
 
 #ifdef _DEBUG
@@ -80,20 +90,19 @@ extern "C" __declspec(dllexport) bool Initialize(HMODULE hMyModule, HMODULE hPar
     freopen_s(&_, "CONOUT$", "w", stderr);
 #endif
 
-    VirtualProtect((PVOID)RDATA_SECTION_OFFSET, RDATA_SECTION_SIZE, PAGE_EXECUTE_WRITECOPY, &old);
-    ogBattleMgrOnRender  = SokuLib::TamperDword(&SokuLib::VTable_BattleManager.onRender,  CBattleManager_OnRender);
+    VirtualProtect((PVOID) RDATA_SECTION_OFFSET, RDATA_SECTION_SIZE, PAGE_EXECUTE_WRITECOPY, &old);
+    ogBattleMgrOnRender = SokuLib::TamperDword(&SokuLib::VTable_BattleManager.onRender, CBattleManager_OnRender);
     ogBattleMgrOnProcess = SokuLib::TamperDword(&SokuLib::VTable_BattleManager.onProcess, CBattleManager_OnProcess);
-    VirtualProtect((PVOID)RDATA_SECTION_OFFSET, RDATA_SECTION_SIZE, old, &old);
+    VirtualProtect((PVOID) RDATA_SECTION_OFFSET, RDATA_SECTION_SIZE, old, &old);
 
-    VirtualProtect((PVOID)TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, PAGE_EXECUTE_WRITECOPY, &old);
+    VirtualProtect((PVOID) TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, PAGE_EXECUTE_WRITECOPY, &old);
     og_mCheckFKey = SokuLib::TamperNearJmpOpr(0x482591, mCheckFKey_VSNetwork);
-    VirtualProtect((PVOID)TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, old, &old);
+    VirtualProtect((PVOID) TEXT_SECTION_OFFSET, TEXT_SECTION_SIZE, old, &old);
 
     FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
     return true;
 }
 
-extern "C" int APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID lpReserved)
-{
+extern "C" int APIENTRY DllMain(HMODULE hModule, DWORD fdwReason, LPVOID lpReserved) {
     return TRUE;
 }
