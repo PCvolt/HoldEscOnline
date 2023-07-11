@@ -24,13 +24,11 @@ int __fastcall CBattleManager_OnRender(SokuLib::BattleManager *This)
 int __fastcall CBattleManager_OnProcess(SokuLib::BattleManager *This)
 {
     if (!init) {
-        SokuLib::Vector2i realSize;
-
         cog.texture.loadFromFile("modules/HoldEscOnline/assets/gear.png");
-        cog.setPosition(SokuLib::Vector2i{35, 35});
-        cog.setSize(realSize.to<unsigned>());
-        cog.rect.width = realSize.x;
-        cog.rect.height = realSize.y;
+        cog.setPosition(SokuLib::Vector2i{5, 5});
+        cog.setSize(cog.texture.getSize().to<unsigned>());
+        cog.rect.width = cog.texture.getSize().x;
+        cog.rect.height = cog.texture.getSize().y;
         init = true;
     }
 
