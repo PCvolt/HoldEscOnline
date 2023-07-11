@@ -23,12 +23,15 @@ bool isSokuFocused() {
     return getSokuHandle() == GetForegroundWindow();
 }
 
-bool escHoldConditions;
+bool isFocused;
 
 int __fastcall CBattleManager_OnRender(SokuLib::BattleManager *This) {
     (This->*ogBattleMgrOnRender)();
-    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && escHoldConditions == true)
+    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && isFocused == true &&
+        (SokuLib::mainMode == SokuLib::BATTLE_MODE_VSSERVER || SokuLib::mainMode == SokuLib::BATTLE_MODE_VSSERVER))
         cog.draw();
+
+    isFocused = false; // Prevents from rendering even if the previous esc hold was valid
     return 0;
 }
 
@@ -42,10 +45,10 @@ int __fastcall CBattleManager_OnProcess(SokuLib::BattleManager *This) {
         init = true;
     }
 
-    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && escHoldConditions == true)
+    if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000 && isFocused == true &&
+        (SokuLib::mainMode == SokuLib::BATTLE_MODE_VSSERVER || SokuLib::mainMode == SokuLib::BATTLE_MODE_VSSERVER))
         cog.setRotation(cog.getRotation() + 0.01f);
 
-    escHoldConditions = false; // Prevents from rendering even if the previous esc hold was valid
     return (This->*ogBattleMgrOnProcess)();
 }
 
@@ -54,16 +57,20 @@ int timeHeld = 0;
 bool isEscapeHeld() {
     if (GetAsyncKeyState(ESC_KEYCODE) & 0x8000) {
         if (!isSokuFocused()) {
-            escHoldConditions = false;
+            isFocused = false;
             timeHeld = 0;
-            return false;
-        } else if (timeHeld < 120) {
-            ++timeHeld;
             return false;
         } else {
-            timeHeld = 0;
-            return true;
+            isFocused = true;
+            if (timeHeld < 120) {
+                ++timeHeld;
+                return false;
+            } else {
+                timeHeld = 0;
+                return true;
+            }
         }
+
     }
 
     timeHeld = 0;
